@@ -39,9 +39,12 @@ class ActionScheduler_AdminView extends ActionScheduler_AdminView_Deprecated {
 				add_filter( 'woocommerce_admin_status_tabs', array( $this, 'register_system_status_tab' ) );
 			}
 
-			add_action( 'admin_menu', array( $this, 'register_menu' ) );
 			add_action( 'admin_notices', array( $this, 'maybe_check_pastdue_actions' ) );
 			add_action( 'current_screen', array( $this, 'add_help_tabs' ) );
+
+			if ( apply_filters( 'action_scheduler_register_submenu', true ) ) {
+				add_action( 'admin_menu', array( $this, 'register_menu' ) );
+			}
 		}
 	}
 
