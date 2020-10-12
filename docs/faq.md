@@ -105,3 +105,9 @@ It requires no setup, and won't override any WordPress APIs (unless you want it 
 Action Scheduler is designed to manage the scheduled actions on a single site. It has no special handling for running queues across multiple sites in a multisite network. That said, because its storage and Queue Runner are completely swappable, it would be possible to write multisite handling classes to use with it.
 
 If you'd like to create a multisite plugin to do this and release it publicly to help others, [open a new issue to let us know](https://github.com/woocommerce/action-scheduler/issues/new), we'd love to help you with it.
+
+### My site has past-due actions; what can I do?
+
+Actions that are past-due have missed their scheduled date; because of [how WP Cron works](https://developer.wordpress.org/plugins/cron/), it is normal to have some past-due actions. 
+
+If there are several past-due actions more than one day old, there may be something wrong with your site. If you need help determining the issue and are a WooCommerce.com customer, please [contact us](https://woocommerce.com/contact-us/).
