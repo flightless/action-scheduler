@@ -87,24 +87,50 @@ class ActionScheduler_QueueRunner extends ActionScheduler_Abstract_QueueRunner {
 	 * This method is attached to 'shutdown', so is called frequently. To avoid slowing down
 	 * the site, it mitigates the work performed in each request by:
 	 * 1. checking if it's in the admin context and then
-	 * 2. haven't run on the 'shutdown' hook within the lock time (60 seconds by default)
-	 * 3. haven't exceeded the number of allowed batches.
+	 * 2. if not in admin context check whether non-admin async runner requests should be allowed via a filter
+	 * 3. haven't run on the 'shutdown' hook within the lock time (60 seconds by default)
+	 * 4. haven't exceeded the number of allowed batches.
 	 *
 	 * The order of these checks is important, because they run from a check on a value:
 	 * 1. in memory - is_admin() maps to $GLOBALS or the WP_ADMIN constant
-	 * 2. in memory - transients use autoloaded options by default
-	 * 3. from a database query - has_maximum_concurrent_batches() run the query
+	 * 2. filter - 'action_scheduler_allow_non_admin_async_runner_request' value
+	 * 3. in memory - transients use autoloaded options by default
+	 * 4. from a database query - has_maximum_concurrent_batches() run the query
 	 *    $this->store->get_claim_count() to find the current number of claims in the DB.
 	 *
 	 * If all of these conditions are met, then we request an async runner check whether it
 	 * should dispatch a request to process pending actions.
 	 */
 	public function maybe_dispatch_async_request() {
-		if ( is_admin() && ! ActionScheduler::lock()->is_locked( 'async-request-runner' ) ) {
+		if (
+			( is_admin() || $this->allow_non_admin_async_request() )
+			&& ! ActionScheduler::lock()->is_locked( 'async-request-runner' )
+		) {
 			// Only start an async queue at most once every 60 seconds
 			ActionScheduler::lock()->set( 'async-request-runner' );
 			$this->async_request->maybe_dispatch();
 		}
+	}
+
+	/**
+	 * Check if an async runner request should be allowed outside of the admin context.
+	 *
+	 * @since 3.2.0
+	 *
+	 * @return bool
+	 */
+	protected function allow_non_admin_async_request() {
+		/**
+		 * Filter whether an async runner request is allowed outside of the admin context.
+		 *
+		 * Non-admin async runner requests are disabled by default.
+		 *
+		 * Performance note: This filter is evaluated at 'shutdown' on every non-admin request.
+		 * Avoid attaching database queries or intensive work to this filter.
+		 *
+		 * @since 3.2.0
+		 */
+		return (bool) apply_filters( 'action_scheduler_allow_non_admin_async_runner_request', false );
 	}
 
 	/**
