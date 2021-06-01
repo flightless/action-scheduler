@@ -28,17 +28,20 @@ class ActionScheduler_wpPostStore_Test extends ActionScheduler_UnitTestCase {
 	}
 
 	public function test_retrieve_action() {
-		$time = as_get_datetime_object();
-		$schedule = new ActionScheduler_SimpleSchedule($time);
-		$action = new ActionScheduler_Action('my_hook', array(), $schedule, 'my_group');
-		$store = new ActionScheduler_wpPostStore();
-		$action_id = $store->save_action($action);
+		$time      = as_get_datetime_object();
+		$schedule  = new ActionScheduler_SimpleSchedule( $time );
+		$retry     = new ActionScheduler_Retry( 1 );
+		$action    = new ActionScheduler_Action( 'my_hook', array(), $schedule, 'my_group', $retry );
+		$store     = new ActionScheduler_wpPostStore();
+		$action_id = $store->save_action( $action );
 
-		$retrieved = $store->fetch_action($action_id);
-		$this->assertEquals($action->get_hook(), $retrieved->get_hook());
-		$this->assertEqualSets($action->get_args(), $retrieved->get_args());
+		$retrieved = $store->fetch_action( $action_id );
+		$this->assertEquals( $action->get_hook(), $retrieved->get_hook() );
+		$this->assertEqualSets( $action->get_args(), $retrieved->get_args() );
 		$this->assertEquals( $action->get_schedule()->get_date()->getTimestamp(), $retrieved->get_schedule()->get_date()->getTimestamp() );
-		$this->assertEquals($action->get_group(), $retrieved->get_group());
+		$this->assertEquals( $action->get_group(), $retrieved->get_group() );
+		$this->assertEquals( $action->get_retry()->get_limit(), $retrieved->get_retry()->get_limit() );
+		$this->assertEquals( $action->get_retry()->get_fails(), $retrieved->get_retry()->get_fails() );
 	}
 
 	/**

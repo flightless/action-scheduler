@@ -7,6 +7,7 @@ class ActionScheduler_wpPostStore extends ActionScheduler_Store {
 	const POST_TYPE = 'scheduled-action';
 	const GROUP_TAXONOMY = 'action-group';
 	const SCHEDULE_META_KEY = '_action_manager_schedule';
+	const RETRY_META_KEY = '_action_manager_retry';
 	const DEPENDENCIES_MET = 'as-post-store-dependencies-met';
 
 	/**
@@ -29,6 +30,14 @@ class ActionScheduler_wpPostStore extends ActionScheduler_Store {
 			$post_id = $this->save_post_array( $post_array );
 			$this->save_post_schedule( $post_id, $action->get_schedule() );
 			$this->save_action_group( $post_id, $action->get_group() );
+			$retry = $action->get_retry();
+			$retry = empty( $retry )
+				? array()
+				: array(
+					'limit' => $retry->get_limit(),
+					'fails' => $retry->get_fails(),
+				);
+			$this->save_action_retry( $post_id, $retry );
 			do_action( 'action_scheduler_stored_action', $post_id );
 			return $post_id;
 		} catch ( Exception $e ) {
@@ -167,10 +176,18 @@ class ActionScheduler_wpPostStore extends ActionScheduler_Store {
 		$schedule = get_post_meta( $post->ID, self::SCHEDULE_META_KEY, true );
 		$this->validate_schedule( $schedule, $post->ID );
 
-		$group = wp_get_object_terms( $post->ID, self::GROUP_TAXONOMY, array('fields' => 'names') );
-		$group = empty( $group ) ? '' : reset($group);
+		$group = wp_get_object_terms( $post->ID, self::GROUP_TAXONOMY, array( 'fields' => 'names' ) );
+		$group = empty( $group ) ? '' : reset( $group );
 
-		return ActionScheduler::factory()->get_stored_action( $this->get_action_status_by_post_status( $post->post_status ), $hook, $args, $schedule, $group );
+		$retry = json_decode( get_post_meta( $post->ID, self::RETRY_META_KEY, true ), false );
+		$retry = empty( $retry )
+			? null
+			: new ActionScheduler_Retry(
+				isset( $retry->limit ) ? $retry->limit : 0,
+				isset( $retry->fails ) ? $retry->fails : 0
+			);
+
+		return ActionScheduler::factory()->get_stored_action( $this->get_action_status_by_post_status( $post->post_status ), $hook, $args, $schedule, $group, $retry );
 	}
 
 	/**
@@ -881,5 +898,9 @@ class ActionScheduler_wpPostStore extends ActionScheduler_Store {
 
 		$taxonomy_registrar = new ActionScheduler_wpPostStore_TaxonomyRegistrar();
 		$taxonomy_registrar->register();
+	}
+
+	protected function save_action_retry( $post_id, array $retry ) {
+		update_post_meta( $post_id, self::RETRY_META_KEY, wp_slash( json_encode( $retry ) ) );
 	}
 }

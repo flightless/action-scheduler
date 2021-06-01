@@ -50,6 +50,7 @@ class ActionScheduler_DBStore extends ActionScheduler_Store {
 
 			/** @var \wpdb $wpdb */
 			global $wpdb;
+			$retry = $action->get_retry();
 			$data = [
 				'hook'                 => $action->get_hook(),
 				'status'               => ( $action->is_finished() ? self::STATUS_COMPLETE : self::STATUS_PENDING ),
@@ -57,6 +58,8 @@ class ActionScheduler_DBStore extends ActionScheduler_Store {
 				'scheduled_date_local' => $this->get_scheduled_date_string_local( $action, $date ),
 				'schedule'             => serialize( $action->get_schedule() ),
 				'group_id'             => $this->get_group_id( $action->get_group() ),
+				'retry_limit'          => isset( $retry ) ? $retry->get_limit() : null,
+				'retry_fails'          => isset( $retry ) ? $retry->get_fails() : null,
 			];
 			$args = wp_json_encode( $action->get_args() );
 			if ( strlen( $args ) <= static::$max_index_length ) {
@@ -72,8 +75,7 @@ class ActionScheduler_DBStore extends ActionScheduler_Store {
 
 			if ( is_wp_error( $action_id ) ) {
 				throw new RuntimeException( $action_id->get_error_message() );
-			}
-			elseif ( empty( $action_id ) ) {
+			} elseif ( empty( $action_id ) ) {
 				throw new RuntimeException( $wpdb->last_error ? $wpdb->last_error : __( 'Database error.', 'action-scheduler' ) );
 			}
 
@@ -198,9 +200,11 @@ class ActionScheduler_DBStore extends ActionScheduler_Store {
 	 */
 	protected function make_action_from_db_record( $data ) {
 
-		$hook     = $data->hook;
 		$args     = json_decode( $data->args, true );
 		$schedule = unserialize( $data->schedule );
+		$retry    = isset( $data->retry_limit ) && isset( $data->retry_fails )
+			? new ActionScheduler_Retry( $data->retry_limit, $data->retry_fails )
+			: null;
 
 		$this->validate_args( $args, $data->action_id );
 		$this->validate_schedule( $schedule, $data->action_id );
@@ -210,7 +214,7 @@ class ActionScheduler_DBStore extends ActionScheduler_Store {
 		}
 		$group = $data->group ? $data->group : '';
 
-		return ActionScheduler::factory()->get_stored_action( $data->status, $data->hook, $args, $schedule, $group );
+		return ActionScheduler::factory()->get_stored_action( $data->status, $data->hook, $args, $schedule, $group, $retry );
 	}
 
 	/**
