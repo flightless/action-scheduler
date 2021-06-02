@@ -67,7 +67,7 @@ abstract class ActionScheduler {
 	}
 
 	public static function autoload( $class ) {
-		$d           = DIRECTORY_SEPARATOR;
+		$d           = '/';
 		$classes_dir = self::plugin_path( 'classes' . $d );
 		$separator   = strrpos( $class, '\\' );
 		if ( false !== $separator ) {
@@ -119,7 +119,7 @@ abstract class ActionScheduler {
 		}
 
 		if ( file_exists( "{$dir}{$class}.php" ) ) {
-			include( "{$dir}{$class}.php" );
+			include( $dir . $class . '.php' );
 			return;
 		}
 	}
@@ -166,10 +166,9 @@ abstract class ActionScheduler {
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			WP_CLI::add_command( 'action-scheduler', 'ActionScheduler_WPCLI_Scheduler_command' );
-			if ( ! ActionScheduler_DataController::is_migration_complete() && Controller::instance()->allow_migration() ) {
-				$command = new Migration_Command();
-				$command->register();
-			}
+
+			$command = new Migration_Command();
+			$command->register();
 		}
 
 		self::$data_store_initialized = true;
